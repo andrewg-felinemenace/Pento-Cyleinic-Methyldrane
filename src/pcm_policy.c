@@ -25,11 +25,11 @@ json_t *pcm_policy_parse(char *filename)
 
 u_int32_t pcm_string_to_policy(char *str)
 {
-	if(strcmp(str, "ALLOW") == 0) {
+	if(strcasecmp(str, "ALLOW") == 0) {
 		return SCMP_ACT_ALLOW;
-	} else if(strcmp(str, "KILL") == 0) {
+	} else if(strcasecmp(str, "KILL") == 0) {
 		return SCMP_ACT_KILL;
-	} else if(strcmp(str, "ERRNO") == 0) {
+	} else if(strcasecmp(str, "ERRNO") == 0) {
 		return SCMP_ACT_ERRNO(EPERM);
 	} 
 
