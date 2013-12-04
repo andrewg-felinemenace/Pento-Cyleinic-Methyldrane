@@ -1,0 +1,25 @@
+{
+	"default": "KILL",
+	"rules": [
+		{
+			"syscall": "exit",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "exit_group",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "nanosleep",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "rt_sigprocmask",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "rt_sigaction",
+			"action": "ALLOW"
+		}
+	]
+}
