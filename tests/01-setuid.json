@@ -1,0 +1,13 @@
+{
+	"default": "KILL",
+	"rules": [
+		{
+			"syscall": "exit",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "exit_group",
+			"action": "ALLOW"
+		}
+	]
+}

@@ -1,0 +1,25 @@
+{
+	"default": "KILL",
+	"rules": [
+		{
+			"syscall": "accept",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "write",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "close",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "exit_group",
+			"action": "ALLOW"
+		},
+		{
+			"syscall": "exit",
+			"action": "ALLOW"
+		}
+	]
+}
