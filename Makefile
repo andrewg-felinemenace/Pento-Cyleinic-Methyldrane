@@ -1,8 +1,9 @@
 all:
-	gcc -c src/pcm_policy.c -o bin/pcm_policy.o -Isrc -O3 -Wall
-	gcc -c src/pcm_hooks.c -o bin/pcm_hooks.o -Isrc -O3 -Wall
-	gcc -c src/pcm_init.c -o bin/pcm_init.o -Isrc -O3 -Wall
+	gcc -fPIC -c src/pcm_policy.c -o bin/pcm_policy.o -Isrc -O3 -Wall
+	gcc -fPIC -c src/pcm_hooks.c -o bin/pcm_hooks.o -Isrc -O3 -Wall
+	gcc -fPIC -c src/pcm_init.c -o bin/pcm_init.o -Isrc -O3 -Wall
 	ar r bin/libpcm.a bin/*.o
+	gcc -shared -fPIC -o bin/libpcm.so bin/*.o -ljansson -ldl -Llibseccomp-2.1.1/src/ -lseccomp -Isrc
 	gcc -o bin/00-exit tests/00-exit.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc 
 	gcc -o bin/00-sleep tests/00-sleep.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc 
 	gcc -o bin/00-exit-fp tests/00-exit-fp.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc
