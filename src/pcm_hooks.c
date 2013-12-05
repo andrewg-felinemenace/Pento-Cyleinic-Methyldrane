@@ -24,14 +24,27 @@ void pcm_resolve_symbols()
 	setuid_fp = dlsym(RTLD_NEXT, "setuid");
 }
 
-int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+void pcm_hook_set(char *hook)
 {
-	if(!pcm_hook_initialized && PCM_GLOBAL.hook && strcmp(PCM_GLOBAL.hook, "accept") == 0) {
-		pcm_hook_initialized = 1;
-		pcm_load_policy_from_file(PCM_GLOBAL.policy_file);
+	if(! hook) {
+		pcm_policy_free();
 	}
 
-	return accept_fp(sockfd, addr, addrlen);
+	PCM_GLOBAL.hook = hook;
+}
+
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+{
+	int ret;
+
+	ret = accept_fp(sockfd, addr, addrlen);
+
+	if(!pcm_hook_initialized && PCM_GLOBAL.hook && strcmp(PCM_GLOBAL.hook, "accept") == 0) {
+		pcm_hook_initialized = 1;
+		pcm_load_policy();
+	}
+
+	return ret;
 }
 
 int setuid(uid_t uid)
@@ -42,7 +55,7 @@ int setuid(uid_t uid)
 
 	if(!pcm_hook_initialized && PCM_GLOBAL.hook && strcmp(PCM_GLOBAL.hook, "setuid") == 0) {
 		pcm_hook_initialized = 1;
-		pcm_load_policy_from_file(PCM_GLOBAL.policy_file);
+		pcm_load_policy();
 	}
 
 	return ret;

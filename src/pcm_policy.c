@@ -10,17 +10,19 @@
 #include <jansson.h>
 #include <seccomp.h>
 
-json_t *pcm_policy_parse(char *filename)
+#include "pcm.h"
+
+int pcm_policy_parse(char *filename, json_error_t *error)
 {
-	json_error_t error;
-	json_t *json;
+	PCM_GLOBAL.policy = json_load_file(filename, 0, error);
+	return !PCM_GLOBAL.policy;
+	
+}
 
-	json = json_load_file(filename, 0, &error);
-	if(! json) {
-		errx(EXIT_FAILURE, "error on line %d: '%s' from %s", error.line, error.text, filename);
-	}
-
-	return json;
+void pcm_policy_free()
+{
+	if(PCM_GLOBAL.policy) json_decref(PCM_GLOBAL.policy);
+	PCM_GLOBAL.policy = NULL;
 }
 
 u_int32_t pcm_string_to_policy(char *str)
@@ -36,12 +38,14 @@ u_int32_t pcm_string_to_policy(char *str)
 	return -1;
 }
 
-scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy)
+scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy, char **hook)
 {
-	json_t *str, *rules;
+	json_t *str, *rules, *hook_obj;
 	u_int32_t default_action;
 	scmp_filter_ctx seccomp;
 	int i;
+
+	if(hook) *hook = NULL; // initialize to a sane value
 
 	/* Verify it's what we expect */
 	if(! json_is_object(policy)) {
@@ -70,6 +74,19 @@ scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy)
 	rules = json_object_get(policy, "rules");
 	if(! json_is_array(rules)) {
 		errx(EXIT_FAILURE, "Getting policy rules from json failed");
+	}
+
+	if(hook) {
+		// XXX, should the file hook value overwrite env var etc?
+		// should we just pcm_hook_set() here?
+		hook_obj = json_object_get(policy, "hook");
+		if(hook_obj) {
+			if(! json_is_string(hook_obj)) {
+				errx(EXIT_FAILURE, "expected hook string, didn't get it :/");
+			}
+	
+			*hook = strdup(json_string_value(hook_obj));
+		}
 	}
 
 	for(i = 0; i < json_array_size(rules); i++) {
@@ -127,15 +144,36 @@ void pcm_install_policy(scmp_filter_ctx *seccomp)
 	seccomp_release(seccomp);
 }
 
+void pcm_load_policy()
+{
+	pcm_install_policy(PCM_GLOBAL.seccomp);
+	PCM_GLOBAL.seccomp = NULL;
+}
+
 void pcm_load_policy_from_file(char *filename)
 {
 	json_t *policy;
 	scmp_filter_ctx seccomp;
+	json_error_t error;
 
-	policy = pcm_policy_parse(filename);
-	seccomp = pcm_json_to_seccomp(policy);
+	if(pcm_policy_parse(filename, &error)) {
+		errx(EXIT_FAILURE, "error on line %d: '%s' from %s", error.line, error.text, filename);
+	}
 
+	seccomp = pcm_json_to_seccomp(PCM_GLOBAL.policy, NULL);
+	PCM_GLOBAL.policy = NULL; // XXX, should avoid all that ;/
 	pcm_install_policy(seccomp);
+}
+
+int pcm_try_load_policy_from_file(char *filename, char **hook)
+{
+	json_t *policy;
+	json_error_t error;
+
+	if(! pcm_policy_parse(filename, &error)) {
+		PCM_GLOBAL.seccomp = pcm_json_to_seccomp(PCM_GLOBAL.policy, hook);
+	}
+	return !PCM_GLOBAL.seccomp;
 }
 
 #if 0

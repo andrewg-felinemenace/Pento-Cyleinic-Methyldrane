@@ -26,21 +26,31 @@ void convert_slashes_to_underlines(char *buf)
 void pcm_initialize()
 {
 	char *path;
-	char buf[4096];
+	char buf[4096]; 
 	int plus_one;
+	int rc;
+	char *hook;
 
 	// PCM_POLICY_FILE => file to use
 	// PCM_HOOK => start,setuid,accept
 
 	// if no PCM_POLICY_FILE, then don't set PCM_HOOK.
 
-	PCM_GLOBAL.policy_file = getenv("PCM_POLICY_FILE");
-	if(PCM_GLOBAL.policy_file) {
-		PCM_GLOBAL.hook = getenv("PCM_HOOK");
-		if(PCM_GLOBAL.hook && strcmp(PCM_GLOBAL.hook, "start") == 0) {
-			pcm_load_policy_from_file(PCM_GLOBAL.policy_file);
+	hook = NULL;
+	path = getenv("PCM_POLICY_FILE");
+	if(path) {
+		rc = pcm_try_load_policy_from_file(path, &hook);
+
+		if(! rc) {
+			char *envhook;
+			char *usehook;
+			envhook = getenv("PCM_HOOK");
+
+			usehook = envhook ? envhook : hook;
+
+			pcm_hook_set(usehook);	// if we set a NULL hook, it will just free the policy memory.
+			return;
 		}
-		return;
 	} 
 
 	memset(buf, 0, sizeof(buf));
@@ -50,17 +60,17 @@ void pcm_initialize()
 		// XXX, this is an ugly hack for now.
 		if(getpid() == 1) {
 			strcpy(buf, "/sbin/init");
-		} else {
-			return;
-		}
+		} 
 	}
 	
-	plus_one = (buf[0] == '/');
+	plus_one = (buf[0] == '/') ? 1 : 0;
 	convert_slashes_to_underlines(buf);
 	
 	asprintf(&path, "/etc/pcm/%s.json", buf + plus_one);
 
-	// pcm_parse_policy_from_file(path);
+	hook = NULL;
+	pcm_try_load_policy_from_file(path, &hook);
+	pcm_hook_set(hook);
 	
 	free(path);
 }
