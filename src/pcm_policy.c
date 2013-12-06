@@ -25,7 +25,7 @@ void pcm_policy_free()
 	PCM_GLOBAL.policy = NULL;
 }
 
-u_int32_t pcm_string_to_policy(char *str)
+u_int32_t pcm_string_to_policy(const char *str)
 {
 	if(strcasecmp(str, "ALLOW") == 0) {
 		return SCMP_ACT_ALLOW;
@@ -38,22 +38,21 @@ u_int32_t pcm_string_to_policy(char *str)
 	return -1;
 }
 
-scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy, char **hook)
+int pcm_json_to_seccomp(char **hook)
 {
 	json_t *str, *rules, *hook_obj;
 	u_int32_t default_action;
-	scmp_filter_ctx seccomp;
-	int i;
+	int i, rc;
 
 	if(hook) *hook = NULL; // initialize to a sane value
 
 	/* Verify it's what we expect */
-	if(! json_is_object(policy)) {
+	if(! json_is_object(PCM_GLOBAL.policy)) {
 		errx(EXIT_FAILURE, "root is not an object");
 	}	
 
 	/* Get the default action */
-	str = json_object_get(policy, "default");
+	str = json_object_get(PCM_GLOBAL.policy, "default");
 	if(! json_is_string(str)) {
 		errx(EXIT_FAILURE, "expected string, didn't get it :/");
 	}
@@ -64,14 +63,29 @@ scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy, char **hook)
 	}
 
 	/* Initialize seccomp with the default action */
-	seccomp = seccomp_init(default_action);
-	if(seccomp == NULL) {
+	PCM_GLOBAL.seccomp = seccomp_init(default_action);
+	if(PCM_GLOBAL.seccomp == NULL) {
 		errx(EXIT_FAILURE, "Initializing seccomp context failed");
 	}
 
+#if 0
+	// requires a later version of jansson it seems..
+
+	str = json_object_get(PCM_GLOBAL.policy, "no_new_privs");
+	if(json_is_boolean(str)) {
+		int status;
+		status = json_boolean(str);
+
+		rc = seccomp_attr_set(PCM_GLOBAL.seccomp, SCMP_FLTATR_CTL_NNP, status);	
+		if(! rc) {
+			errx(EXIT_FAILURE, "Unable to set no_new_privs attribute to %d\n", status);
+		}
+	}
+#endif
+
 	/* And loop over the rules */
 
-	rules = json_object_get(policy, "rules");
+	rules = json_object_get(PCM_GLOBAL.policy, "rules");
 	if(! json_is_array(rules)) {
 		errx(EXIT_FAILURE, "Getting policy rules from json failed");
 	}
@@ -79,12 +93,12 @@ scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy, char **hook)
 	if(hook) {
 		// XXX, should the file hook value overwrite env var etc?
 		// should we just pcm_hook_set() here?
-		hook_obj = json_object_get(policy, "hook");
+		hook_obj = json_object_get(PCM_GLOBAL.policy, "hook");
 		if(hook_obj) {
 			if(! json_is_string(hook_obj)) {
 				errx(EXIT_FAILURE, "expected hook string, didn't get it :/");
 			}
-	
+
 			*hook = strdup(json_string_value(hook_obj));
 		}
 	}
@@ -120,58 +134,51 @@ scmp_filter_ctx *pcm_json_to_seccomp(json_t *policy, char **hook)
 			errx(EXIT_FAILURE, "System call number is negative?");
 		}
 
-		rc = seccomp_rule_add(seccomp, default_action, syscall_num, 0);
+		rc = seccomp_rule_add(PCM_GLOBAL.seccomp, default_action, syscall_num, 0);
 		if(rc < 0) {
 			errx(EXIT_FAILURE, "Adding rule failed?");
 		}
 
 	}
 
-	// and free!
-	json_decref(policy);
+	pcm_policy_free();
 
-	return seccomp;
+	return 0;
 }
 
-void pcm_install_policy(scmp_filter_ctx *seccomp)
+void pcm_install_policy()
 {
 	int rc;
 
-	rc = seccomp_load(seccomp);
+	rc = seccomp_load(PCM_GLOBAL.seccomp);
 	if(rc < 0) {
 		errx(EXIT_FAILURE, "Failed to load the seccomp policy into the process");
 	}
-	seccomp_release(seccomp);
-}
-
-void pcm_load_policy()
-{
-	pcm_install_policy(PCM_GLOBAL.seccomp);
+	seccomp_release(PCM_GLOBAL.seccomp);
 	PCM_GLOBAL.seccomp = NULL;
 }
 
 void pcm_load_policy_from_file(char *filename)
 {
-	json_t *policy;
-	scmp_filter_ctx seccomp;
 	json_error_t error;
 
 	if(pcm_policy_parse(filename, &error)) {
 		errx(EXIT_FAILURE, "error on line %d: '%s' from %s", error.line, error.text, filename);
 	}
 
-	seccomp = pcm_json_to_seccomp(PCM_GLOBAL.policy, NULL);
-	PCM_GLOBAL.policy = NULL; // XXX, should avoid all that ;/
-	pcm_install_policy(seccomp);
+	if(! pcm_json_to_seccomp(NULL)) {
+		errx(EXIT_FAILURE, "failed to convert json to seccomp");
+	}
+
+	pcm_install_policy();
 }
 
 int pcm_try_load_policy_from_file(char *filename, char **hook)
 {
-	json_t *policy;
 	json_error_t error;
 
 	if(! pcm_policy_parse(filename, &error)) {
-		PCM_GLOBAL.seccomp = pcm_json_to_seccomp(PCM_GLOBAL.policy, hook);
+		pcm_json_to_seccomp(hook);
 	}
 	return !PCM_GLOBAL.seccomp;
 }

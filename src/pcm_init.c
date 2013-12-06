@@ -69,7 +69,8 @@ void pcm_initialize()
 	asprintf(&path, "/etc/pcm/%s.json", buf + plus_one);
 
 	hook = NULL;
-	pcm_try_load_policy_from_file(path, &hook);
+	rc = pcm_try_load_policy_from_file(path, &hook);
+	// printf("got %d from try_load and hook is %s\n", rc, hook);
 	pcm_hook_set(hook);
 	
 	free(path);
