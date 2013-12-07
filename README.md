@@ -52,7 +52,6 @@ root@pcm:~/pcm# cat /etc/pcm/bin_cat.json
 root@pcm:~/pcm# LD_PRELOAD=bin/libpcm.so PCM_POLICY_FILE=/etc/pcm/bin_cat.json cat /etc/pcm/bin_cat.json
 cat: /etc/pcm/bin_cat.json: Operation not permitted
 ```
-
 ### Breaking shellcode
 
 Consider the logic behind connect back or bind port shellcode
@@ -80,13 +79,15 @@ Generally speaking, network applications won't use the dup2() system call after
 initialization (as they generally set /dev/null to fd's 0, 1 and 2), so it becomes
 feasible to use the seccomp interface to kill the process if that system call occurs. 
 
+(There are some exceptions to this, such as inetd style socket servers
+
 We could use the following configuration file after an accept() libc call to kill the
 process if it uses the dup2() system call.
 
 ```json
 {
         "default": "ALLOW",
-        "hook": "listen",
+        "hook": "accept",
         "rules": [
                 {
                         "syscall": "dup2",
@@ -104,6 +105,97 @@ the char *const envp[] being NULL), so we could prevent execve() succeeding when
 set to NULL (using ERRNO mechanism, for example).
 
 Currently, PCM doesn't support argument filtering, but this will come at a later date :>
+
+### Sandboxing lighttpd
+
+#### XXX, you really should use lighttpd's chroot support
+
+A weakness of this approach using the default configuration on Ubuntu is that
+lighttpd is not chroot()'d. Due to this configuration, it would be possible for
+customized payloads to perform actions such as reading world readable files, etc.
+
+#### XXX, if you want php / cgi restricted, you need to do fastcgi etc servers as well
+
+### Policy
+
+Recording system calls with strace 
+
+```sh
+strace -o /tmp/lighttpd -f /usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf
+```
+
+After starting lighttpd under strace, use the website as you normally would, 
+exercising as much functionality that you use.
+
+After stopping strace, you can examine the system calls recorded. We're interested
+in the system calls that occured after privilege dropping (in lighttpd's case, 
+it does a setuid(unprivileged uid) which indicates that the privilege dropping is
+complete).
+
+By deleting all system calls before and including the setuid() line, we end up with
+the used system calls after lighttpd has dropped it's privileges.
+
+Processing the system call recording
+
+```sh
+sed s/\(.*//g /tmp/lighttpd | awk '{ print $2 }' | sort | uniq -c | sort -n -r | awk '{ print $2 }' > usr_sbin_lighttpd.json
+```
+
+This sorts the system calls made by lighttpd, and outputs the most common system
+calls first. We can then add in the rest of the required contents.
+
+Which gives us a policy of
+
+
+```json
+{
+        "default": "KILL",
+        "hook": "setuid",
+        "rules": [
+                { "action": "ALLOW", "syscall": "epoll_wait" },
+                { "action": "ALLOW", "syscall": "close" },
+                { "action": "ALLOW", "syscall": "open" },
+                { "action": "ALLOW", "syscall": "fcntl" },
+                { "action": "ALLOW", "syscall": "read" },
+                { "action": "ALLOW", "syscall": "mkdir" },
+                { "action": "ALLOW", "syscall": "rt_sigaction" },
+                { "action": "ALLOW", "syscall": "setsockopt" },
+                { "action": "ALLOW", "syscall": "ioctl" },
+                { "action": "ALLOW", "syscall": "accept" },
+                { "action": "ALLOW", "syscall": "stat" },
+                { "action": "ALLOW", "syscall": "writev" },
+                { "action": "ALLOW", "syscall": "shutdown" },
+                { "action": "ALLOW", "syscall": "sendfile" },
+                { "action": "ALLOW", "syscall": "brk" },
+                { "action": "ALLOW", "syscall": "write" },
+                { "action": "ALLOW", "syscall": "munmap" },
+                { "action": "ALLOW", "syscall": "mmap" },
+                { "action": "ALLOW", "syscall": "fstat" },
+                { "action": "ALLOW", "syscall": "exit_group" },
+                { "action": "ALLOW", "syscall": "clone" },
+                { "action": "ALLOW", "syscall": "setsid" },
+                { "action": "ALLOW", "syscall": "lseek" },
+                { "action": "ALLOW", "syscall": "getuid" },
+                { "action": "ALLOW", "syscall": "getgid" },
+                { "action": "ALLOW", "syscall": "epoll_ctl" },
+                { "action": "ALLOW", "syscall": "epoll_create" },
+                { "action": "ALLOW", "syscall": "chdir" },
+		{ "action": "ALLOW", "syscall": "statfs" }
+        ]
+}
+```
+
+As we can see here, we've significantly restricted the system calls available to the
+lighttpd process, and if it attempts to execute any other system calls, the process
+is killed.
+
+Just filtering on system calls can have weaknesses .. should filter on args ..
+
+XXX, mention customized shellcode that reads /etc/passwd, then tries for weak
+permissions on /path/to/home/.dotfiles to insert code that runs without restrictions ..
+
+XXX, defense in depth, ensure chroot configuration is used, and perhaps an ACL interface
+by the kernel
 
 ### Preventing kernel exploitation
 
@@ -123,10 +215,25 @@ In order to do this, we ideally need to restrict every process on the system
 (from init onwards), however, restricting just network facing daemons may suffice
 (for example, a web server may restrict httpd and sshd) ..
 
+However, for this to work, you must be able to log in as root at the console or
+over the network - it seems that the libseccomp2 library doesn't allow you to
+disable the no new privs functionality. 
+
 #### Preventing system calls system wide 
+
+(XXX, reboot is best bet .. ?)
 
 To load the library into the init process, we can use /etc/ld.so.preload and ask
 init to re-execute itself (telinit u) ..
+
+After init has been restarted, you need to restart affected services. With upstart, 
+you can use the initctl command to restart processes, for example:
+
+```sh
+initctl restart ssh
+```
+
+
 
 #### Verifying that processes are restricted 
 
@@ -136,10 +243,10 @@ cat /proc/$PID/status | grep Seccomp
 Seccomp: 2
 ```
 
+However, I'm not aware of any way of dumping the filters associated with a 
+process or thread at the moment. 
+
 #### XXX, don't do this section (titled Danger, Will Robinson?)
-
-### Whitelisting system calls and arguments
-
 
 
 
