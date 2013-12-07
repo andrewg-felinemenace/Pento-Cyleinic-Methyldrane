@@ -9,7 +9,8 @@
 
 int main(int argc, char **argv)
 {
-	pcm_load_policy_from_file("../tests/00-sleep.json");
-	sleep(60);
+	pcm_load_policy_from_file("../tests/00-sleep.json", NULL);
+	pcm_install_policy();
+	sleep(1);
 	return 0;
 }

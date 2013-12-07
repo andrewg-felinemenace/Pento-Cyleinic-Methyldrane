@@ -4,7 +4,7 @@ cd ../bin
 
 for i in *-* ; do 
 	echo -n "[*] Testing $i ... "
-	./$i >/dev/null 2>/dev/null
+	LD_LIBRARY_PATH=. ./$i >/dev/null 2>/dev/null
 	shorter=${i%-fp}
 
 	if [ "$i" =  "$shorter" ] ; then

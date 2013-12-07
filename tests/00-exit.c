@@ -9,6 +9,8 @@
 
 int main(int argc, char **argv)
 {
-	pcm_load_policy_from_file("../tests/00-exit.json");
+	pcm_load_policy_from_file("../tests/00-exit.json", NULL);
+	pcm_install_policy();
+
 	return 0;
 }

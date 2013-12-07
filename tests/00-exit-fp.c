@@ -11,7 +11,8 @@ int main(int argc, char **argv)
 {
 	int fd;
 
-	pcm_load_policy_from_file("../tests/00-exit.json");
+	pcm_load_policy_from_file("../tests/00-exit.json", NULL);
+	pcm_install_policy();
 
 	fd = open("/etc/passwd", O_RDONLY);
 

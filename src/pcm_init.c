@@ -39,7 +39,7 @@ void pcm_initialize()
 	hook = NULL;
 	path = getenv("PCM_POLICY_FILE");
 	if(path) {
-		rc = pcm_try_load_policy_from_file(path, &hook);
+		rc = pcm_load_policy_from_file(path, &hook);
 
 		if(! rc) {
 			char *envhook;

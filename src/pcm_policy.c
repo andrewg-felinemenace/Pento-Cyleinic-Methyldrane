@@ -156,7 +156,7 @@ void pcm_install_policy()
 	PCM_GLOBAL.seccomp = NULL;
 }
 
-void pcm_load_policy_from_file(char *filename)
+int pcm_load_policy_from_file(char *filename, char **hook)
 {
 	json_error_t error;
 
@@ -164,11 +164,11 @@ void pcm_load_policy_from_file(char *filename)
 		errx(EXIT_FAILURE, "error on line %d: '%s' from %s", error.line, error.text, filename);
 	}
 
-	if(! pcm_json_to_seccomp(NULL)) {
+	if(pcm_json_to_seccomp(hook)) {
 		errx(EXIT_FAILURE, "failed to convert json to seccomp");
 	}
 
-	pcm_install_policy();
+	return 0;
 }
 
 int pcm_try_load_policy_from_file(char *filename, char **hook)

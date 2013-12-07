@@ -13,7 +13,7 @@ extern struct pcm_global PCM_GLOBAL;
 
 // src/pcm_policy.c
 int pcm_try_load_policy_from_file(char *filename, char **hook);
-void pcm_load_policy_from_file(char *filename);
+int pcm_load_policy_from_file(char *filename, char **hook);
 void pcm_policy_free();
 void pcm_install_policy();
 
