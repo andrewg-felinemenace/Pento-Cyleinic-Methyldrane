@@ -68,20 +68,18 @@ int pcm_json_to_seccomp(char **hook)
 		errx(EXIT_FAILURE, "Initializing seccomp context failed");
 	}
 
-#if 0
-	// requires a later version of jansson it seems..
-
 	str = json_object_get(PCM_GLOBAL.policy, "no_new_privs");
-	if(json_is_boolean(str)) {
-		int status;
-		status = json_boolean(str);
+	if(str) {
+		// for another day, default version of jansson on this system doesn't have it.
+		// int status;
+		// status = json_boolean(str);
+		// we'll assume they want to disable it.
 
-		rc = seccomp_attr_set(PCM_GLOBAL.seccomp, SCMP_FLTATR_CTL_NNP, status);	
+		rc = seccomp_attr_set(PCM_GLOBAL.seccomp, SCMP_FLTATR_CTL_NNP, 0);	
 		if(! rc) {
-			errx(EXIT_FAILURE, "Unable to set no_new_privs attribute to %d\n", status);
+			errx(EXIT_FAILURE, "Unable to set no_new_privs attribute to off (%m) and rc = %d, -rc = %d\n", rc, -rc);
 		}
 	}
-#endif
 
 	/* And loop over the rules */
 
