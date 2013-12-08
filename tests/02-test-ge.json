@@ -1,0 +1,16 @@
+{
+	"default": "kill",
+	"hook": "start",
+	"rules": [
+		{ 
+			"action": "allow", 
+			"syscall": "read",
+			"restrictions": [
+				{ "arg": 0, "op": "ge", "datum_a": 3 }
+			]
+		},
+		{ "action": "allow", "syscall": "exit_group" },
+		{ "action": "allow", "syscall": "write" },
+		{ "action": "allow", "syscall": "exit" }
+	]
+}

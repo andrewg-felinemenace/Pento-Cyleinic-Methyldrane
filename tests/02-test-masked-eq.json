@@ -1,0 +1,16 @@
+{
+	"default": "kill",
+	"hook": "start",
+	"rules": [
+		{ 
+			"action": "allow", 
+			"syscall": "read",
+			"restrictions": [
+				{ "arg": 2, "op": "masked_eq", "datum_a": 1, "datum_b": 1 }
+			]
+		},
+		{ "action": "allow", "syscall": "exit_group" },
+		{ "action": "allow", "syscall": "write" },
+		{ "action": "allow", "syscall": "exit" }
+	]
+}
