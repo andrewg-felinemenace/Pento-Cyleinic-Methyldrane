@@ -1,8 +1,11 @@
 # Pento Cyleinic Methyldrane
 
+This is work in progress / experimental at the moment, and mostly intended for my own amusement
+at the moment. So keep that in mind :)
+
 ## Seriously, what's up with the name?
 
-Youtube link, doctor who!
+Youtube link, doctor who, the sun makers, 2nd video, in processing centre
 
 ## About 
 
@@ -16,8 +19,7 @@ disallow all system calls except for the system calls you define.
 
 PCM is a tool to experiment with the seccomp interface, and using it as an 
 "after market" tool to either help secure applications, or quickly experiment
-with how much 
-
+with how much effort is required to add sandboxing to an application.
 
 ## Creating sandboxes 
 
@@ -25,13 +27,88 @@ XXX, to do
 
 ## Technical notes
 
-In order to remove as many system calls as possible from the target
-application, it works by acting as a shared library, and once a suitable
-function has been called, it installs the filter.
+In order to run with the least amount of system calls possible, it's best to
+install the filter after the application has executed general initialization
+functions, then drops privilege / just before it handles untrusted input.
+
+In order to do this, PCM is a shared library which can hook some limited
+functions (such as setuid, etc) to indicate it's time to install the filter.
 
 ## Configuration files
 
-XXX, to do
+Configuration files currently use JSON to store the data in, though this is subject
+to change once the requirements of the configuration files are set in stone.
+
+The configuration is based as a JSON object, which sets the default action (what
+happens when no rules match), when it should install the filter, and what rules are present.
+
+An example of a configuration file that allows all system calls, but makes read return -EPERM
+is as follows:
+
+```json
+{
+        "default": "ALLOW",
+        "hook": "start",
+        "rules": [
+                {
+                        "syscall": "read",
+                        "action": "ERRNO" 
+                }
+        ]
+}
+```
+
+An example of a default deny, all specific system calls is
+
+```json
+{
+        "default": "KILL",
+        "hook": "start",
+        "rules": [
+                {
+                        "syscall": "exit_group",
+                        "action": "ALLOW" 
+                }
+        ]
+}
+```
+
+You can even restrict the arguments specified to the system call.
+It's possible to test if it's not equal (ne), less than (lt),
+lesser than or equal to (le), equal (eq), greater than or equal to (ge),
+greater than (gt), and finally, masked equally.
+
+An example of only allowing odd-length read lengths can be implemented by
+masked equally.
+
+```
+{
+        "default": "kill",
+        "hook": "start",
+        "rules": [
+                { 
+                        "action": "allow", 
+                        "syscall": "read",
+                        "restrictions": [
+                                { "arg": 2, "op": "masked_eq", "datum_a": 1, "datum_b": 1 }
+                        ]
+                },
+                { "action": "allow", "syscall": "exit_group" },
+                { "action": "allow", "syscall": "write" },
+                { "action": "allow", "syscall": "exit" }
+        ]
+}
+```
+
+Which checks the 2nd (starting from 0) argument to read(), which performs 
+
+```c
+(arg_2 & datum_a) == datum_b
+```
+
+and only allows the system call if the result matches.
+
+The masked equal can be used to check arguments which uses bit flags to specify values.
 
 ## Examples
 
@@ -102,9 +179,25 @@ how likely it is to occur in normal system operation.
 
 An example of a generally unlikely system call is the execve(prog, [ prog ], NULL) (with
 the char *const envp[] being NULL), so we could prevent execve() succeeding when envp[] is
-set to NULL (using ERRNO mechanism, for example).
+set to NULL (using ERRNO mechanism, for example). This type of restriction would most
+likely be a suitable system wide restriction.
 
-Currently, PCM doesn't support argument filtering, but this will come at a later date :>
+
+```json
+{
+        "default": "ALLOW",
+        "hook": "accept",
+        "rules": [
+                {
+                        "syscall": "execve",
+                        "action": "KILL",
+			"restrictions": [
+				{ "arg": 2, "op": "eq", "datum_a": 0 }
+			]
+                }
+        ]
+}
+```
 
 ### Sandboxing lighttpd
 
@@ -116,7 +209,7 @@ customized payloads to perform actions such as reading world readable files, etc
 
 #### XXX, if you want php / cgi restricted, you need to do fastcgi etc servers as well
 
-### Policy
+#### Policy
 
 Recording system calls with strace 
 
@@ -205,6 +298,8 @@ old ptrace bug
 perf_counter
 move_pages
 
+XXX, you really should upgrade the kernel and not rely on this. 
+
 #### Theory
 
 We can help prevent kernel exploitation by restricting access to system calls that 
@@ -247,8 +342,6 @@ However, I'm not aware of any way of dumping the filters associated with a
 process or thread at the moment. 
 
 #### XXX, don't do this section (titled Danger, Will Robinson?)
-
-
 
 
 [1] youtube link 
