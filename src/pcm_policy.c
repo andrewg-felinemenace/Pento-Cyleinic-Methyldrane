@@ -128,7 +128,7 @@ int pcm_json_to_seccomp(char **hook)
 		}	
 	
 		syscall_num = seccomp_syscall_resolve_name(json_string_value(syscall));
-		if(syscall_num < 0) {
+		if(syscall_num == __NR_SCMP_ERROR) {
 			errx(EXIT_FAILURE, "System call number is negative?");
 		}
 
