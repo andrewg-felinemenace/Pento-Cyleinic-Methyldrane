@@ -11,3 +11,6 @@ all:
 	gcc -ggdb -o bin/01-setuid-fp tests/01-setuid-fp.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc -ldl
 	gcc -ggdb -o bin/01-accept tests/01-accept.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc -ldl
 	gcc -ggdb -o bin/01-accept-fp tests/01-accept-fp.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc -ldl
+	gcc -ggdb -o bin/02-readfd tests/02-readfd.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc -ldl
+	gcc -ggdb -o bin/02-readfd-0fp tests/02-readfd-0fp.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc -ldl
+	gcc -ggdb -o bin/02-readfd-1fp tests/02-readfd-1fp.c -Lbin -lpcm -Llibseccomp-2.1.1/src/ -lseccomp -ljansson -Isrc -ldl
