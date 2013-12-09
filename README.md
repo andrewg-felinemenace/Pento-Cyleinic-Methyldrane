@@ -7,6 +7,10 @@ at the moment. So keep that in mind :)
 
 Youtube link, doctor who, the sun makers, 2nd video, in processing centre
 
+http://www.youtube.com/watch?v=cXjEdfm4yzo
+
+xxx, time index ?
+
 ## About 
 
 Pento Cyleinic Methyldrane (PCM) removes freedom[1] from programs to execute 
@@ -20,10 +24,6 @@ disallow all system calls except for the system calls you define.
 PCM is a tool to experiment with the seccomp interface, and using it as an 
 "after market" tool to either help secure applications, or quickly experiment
 with how much effort is required to add sandboxing to an application.
-
-## Creating sandboxes 
-
-XXX, to do
 
 ## Technical notes
 
@@ -81,7 +81,7 @@ greater than (gt), and finally, masked equally.
 An example of only allowing odd-length read lengths can be implemented by
 masked equally.
 
-```
+```json
 {
         "default": "kill",
         "hook": "start",
@@ -109,6 +109,31 @@ Which checks the 2nd (starting from 0) argument to read(), which performs
 and only allows the system call if the result matches.
 
 The masked equal can be used to check arguments which uses bit flags to specify values.
+
+
+## Creating sandboxes 
+
+### Theory
+
+PCM (more specifically, due to the seccomp2 interface) can enforce system call 
+sandboxes, but does not restrict access to system calls that require reading 
+process memory to determine the argument (such as the filename passed to read).
+
+This makes sense if you consider a program with two threads running - by the
+time the filename has been read, vetted, and allowed, it may have been changed
+by the other thread, and access may be inadvertently granted to a file.
+
+There are a couple of ways around this - google chrome / chromium for example, use
+a "trusted thread" and restrictions to memory modifications (mmap, etc) to use it.
+
+Another approach would be to use two processes - one that does not have access to
+those system calls, and another that does with a strict API between them using
+sendmsg() / recvmsg() to send file descriptors between the processes.
+
+### Designing your program
+
+XXX, to do
+
 
 ## Examples
 
@@ -185,17 +210,17 @@ likely be a suitable system wide restriction.
 
 ```json
 {
-        "default": "ALLOW",
-        "hook": "accept",
-        "rules": [
-                {
-                        "syscall": "execve",
-                        "action": "KILL",
-			"restrictions": [
-				{ "arg": 2, "op": "eq", "datum_a": 0 }
-			]
-                }
-        ]
+    "default": "ALLOW",
+    "hook": "accept",
+    "rules": [
+        {
+            "syscall": "execve",
+            "action": "KILL",
+            "restrictions": [
+                { "arg": 2, "op": "eq", "datum_a": 0 }
+            ]
+        }
+    ]
 }
 ```
 
